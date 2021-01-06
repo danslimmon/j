@@ -1,0 +1,7 @@
+# binaries
+bin/*
+
+# editor swapfiles
+.*.sw?
+.sw?
+*~

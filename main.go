@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -48,21 +50,55 @@ func removeFile(path string) error {
 }
 
 /*
+hashFile returns a SHA256sum of the file at the given path.
+*/
+func hashFile(path string) ([]byte, error) {
+	var rslt [32]byte
+	f, err := os.Open(path)
+	if err != nil {
+		return rslt[:], err
+	}
+	defer f.Close()
+
+	contents, err := ioutil.ReadAll(f)
+	rslt = sha256.Sum256(contents)
+	return rslt[:], nil
+}
+
+/*
 thoughtAdd adds a new thought to the workspace and marks it for review.
 */
 func thoughtAdd() error {
 	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), fmt.Sprintf("%s.md", uuid.New().String()))
-	err := newFile(
-		thoughtPath,
-		filepath.Join(
-			os.Getenv("J_WORKSPACE"),
-			"template/thought.md",
-		),
-	)
+	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template/thought.md")
+	err := newFile(thoughtPath, templatePath)
 	if err != nil {
 		return err
 	}
-	return editFile(thoughtPath)
+
+	beforeHash, err := hashFile(thoughtPath)
+	if err != nil {
+		return err
+	}
+
+	err = editFile(thoughtPath)
+	if err != nil {
+		// what this should do is put the error in a doc and insert a queue task to open that doc.
+		// but for now, since we don't have queues, let's just return the error
+		return err
+	}
+
+	// make sure there were changes. if the document wasn't changed, don't save the thought.
+	afterHash, err := hashFile(thoughtPath)
+	if err != nil {
+		return err
+	}
+	if bytes.Compare(afterHash, beforeHash) == 0 {
+		log.Info("No change to thought document; aborting")
+		removeFile(thoughtPath)
+	}
+
+	return nil
 }
 
 /*
