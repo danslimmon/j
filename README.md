@@ -140,3 +140,10 @@ NewStorageClient returns a StorageClient whose base directory is baseDir.
 */
 func NewStorageClient(c StorageConfig) {...}
 ```
+
+# journalAdd
+
+- get `j ta` working again
+  - feels like it could be really powerful to get in the habit of keeping my thoughts documented and
+      organized. maybe make that a focus this year.
+- make sure `j ja` is working right

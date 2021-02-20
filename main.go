@@ -10,9 +10,11 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"text/template"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/gernest/front"
 	"github.com/google/uuid"
 )
 
@@ -32,14 +34,39 @@ func editFile(path string) error {
 }
 
 /*
-newFile creates a new file at the given path based on the given template.
+TemplateData is the data object that gets passed to templates on render.
 */
-func newFile(path string, templatePath string) error {
-	tmplData, err := ioutil.ReadFile(templatePath)
+type TemplateData struct {
+	Class     string
+	Timestamp string
+	Tags      []string
+}
+
+/*
+newFile creates a new file at the given path based on the given template.
+
+class is the class of the document; e.g. "thought" or "journal_entry". path is the path where the
+file should be created. templatePath is the path to a template to render to generate the  file's
+initial content.
+*/
+func newFile(class string, path string, templatePath string) error {
+	tmplData := TemplateData{
+		Class:     class,
+		Timestamp: time.Now().Format("2006-01-02T15:04:05Z"),
+		Tags:      []string{},
+	}
+
+	tmpl, err := template.New(fmt.Sprintf("%s.md", class)).ParseGlob(templatePath)
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, tmplData, 0644)
+
+	newFile, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+
+	return tmpl.Execute(newFile, tmplData)
 }
 
 /*
@@ -69,9 +96,9 @@ func hashFile(path string) ([]byte, error) {
 thoughtAdd adds a new thought to the workspace and marks it for review.
 */
 func thoughtAdd() error {
-	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), fmt.Sprintf("%s.md", uuid.New().String()))
-	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template/thought.md")
-	err := newFile(thoughtPath, templatePath)
+	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), "thoughts", "to_review", fmt.Sprintf("%s.md", uuid.New().String()))
+	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "thought.md")
+	err := newFile("thought", thoughtPath, templatePath)
 	if err != nil {
 		return err
 	}
@@ -102,22 +129,79 @@ func thoughtAdd() error {
 }
 
 /*
+shuntFile sends the file off to wherever it's supposed to go after being reviewed.
+*/
+func shuntFile(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	m := front.NewMatter()
+	m.Handle("---", front.YAMLHandler)
+	_, _, err = m.Parse(f)
+	if err != nil {
+		return err
+	}
+
+	//if action, ok := frontmatter["action"]; ok && action == "save" {
+	//	return thoughtSave(path)
+	//}
+	// default action is to discard
+	return removeFile(path)
+}
+
+/*
 thoughtReview reviews all the thoughts that exist in the workspace, removing each after review.
 */
 func thoughtReview() error {
-	thoughtFilePaths, _ := filepath.Glob(fmt.Sprintf("%s/????????-????-????-????-????????????.md", os.Getenv("J_WORKSPACE")))
+	thoughtFilePaths, _ := filepath.Glob(fmt.Sprintf("%s/thoughts/to_review/????????-????-????-????-????????????.md", os.Getenv("J_WORKSPACE")))
 	for _, thoughtFilePath := range thoughtFilePaths {
 		err := editFile(thoughtFilePath)
 		if err != nil {
 			return err
 		}
-
-		err = removeFile(thoughtFilePath)
-		if err != nil {
-			return err
-		}
+		removeFile(thoughtFilePath)
 	}
+
 	log.WithField("reviews", len(thoughtFilePaths)).Info("Review complete")
+	return nil
+}
+
+/*
+journalAdd adds a new journal entry to the workspace
+*/
+func journalAdd() error {
+	entryPath := filepath.Join(os.Getenv("J_WORKSPACE"), "journal", fmt.Sprintf("%s.md", time.Now().Format("2006_01_02_15_04_05")))
+	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "journal_entry.md")
+	err := newFile("journal_entry", entryPath, templatePath)
+	if err != nil {
+		return err
+	}
+
+	beforeHash, err := hashFile(entryPath)
+	if err != nil {
+		return err
+	}
+
+	err = editFile(entryPath)
+	if err != nil {
+		// what this should do is put the error in a doc and insert a queue task to open that doc.
+		// but for now, since we don't have queues, let's just return the error
+		return err
+	}
+
+	// make sure there were changes. if the document wasn't changed, don't save the thought.
+	afterHash, err := hashFile(entryPath)
+	if err != nil {
+		return err
+	}
+	if bytes.Compare(afterHash, beforeHash) == 0 {
+		log.Info("No change to journal entry document; aborting")
+		removeFile(entryPath)
+	}
+
 	return nil
 }
 
@@ -186,9 +270,19 @@ func main() {
 			panic(err)
 		}
 
+	// j is for "journal"
+	case "ja":
+		if err := journalAdd(); err != nil {
+			panic(err)
+		}
+
 	// misc commands
 	case "timer":
 		if err := timer(os.Args[2]); err != nil {
+			panic(err)
+		}
+	case "crap":
+		if err := shuntFile(os.Args[2]); err != nil {
 			panic(err)
 		}
 	}

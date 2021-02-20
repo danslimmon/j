@@ -1,5 +1,6 @@
 # binaries
 bin/*
+__debug_bin
 
 # editor swapfiles
 .*.sw?
