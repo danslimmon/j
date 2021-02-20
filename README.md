@@ -143,7 +143,4 @@ func NewStorageClient(c StorageConfig) {...}
 
 # journalAdd
 
-- get `j ta` working again
-  - feels like it could be really powerful to get in the habit of keeping my thoughts documented and
-      organized. maybe make that a focus this year.
-- make sure `j ja` is working right
+- outline queue system, with an eye to testing the individual "actions" that can be queued
