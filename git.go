@@ -6,12 +6,12 @@ import (
 
 // gitPull pulls the latest changes into the j workspace.
 //
-// path is the path to the repository.
+// workspace is the path to the repository.
 //
 // gitPull always pulls HEAD from origin. If HEAD is detached, or origin is not available, it will
 // error.
-func gitPull(path string) error {
-	r, err := git.PlainOpen(path)
+func gitPull(workspace string) error {
+	r, err := git.PlainOpen(workspace)
 	if err != nil {
 		return err
 	}
@@ -33,8 +33,8 @@ func gitPull(path string) error {
 //
 // workspace is the path to the repository. files are specified relative to the workspace path. msg
 // is the commit message.
-func gitCommit(path string, files []string, msg string) error {
-	r, err := git.PlainOpen(path)
+func gitCommit(workspace string, files []string, msg string) error {
+	r, err := git.PlainOpen(workspace)
 	if err != nil {
 		return err
 	}
@@ -57,4 +57,16 @@ func gitCommit(path string, files []string, msg string) error {
 	}
 
 	return nil
+}
+
+// gitPush pushes to origin.
+//
+// workspace is the path to the repository.
+func gitPush(workspace string) error {
+	r, err := git.PlainOpen(workspace)
+	if err != nil {
+		return err
+	}
+
+	return r.Push(&git.PushOptions{})
 }

@@ -133,6 +133,9 @@ func thoughtAdd() error {
 	if err := gitCommit(os.Getenv("J_WORKSPACE"), []string{thoughtRelPath}, "j ta"); err != nil {
 		return err
 	}
+	if err := gitPush(os.Getenv("J_WORKSPACE")); err != nil {
+		return err
+	}
 
 	return nil
 }
