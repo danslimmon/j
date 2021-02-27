@@ -97,14 +97,17 @@ func hashFile(path string) ([]byte, error) {
 thoughtAdd adds a new thought to the workspace and marks it for review.
 */
 func thoughtAdd() error {
+	os.MkdirAll(filepath.Join(os.Getenv("J_WORKSPACE"), "thoughts", "to_review"), 0755)
 	thoughtRelPath := filepath.Join("thoughts", "to_review", fmt.Sprintf("%s.md", uuid.New().String()))
 	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), thoughtRelPath)
 	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "thought.md")
+	log.WithField("path", thoughtPath).Debug("Making new file")
 	err := newFile("thought", thoughtPath, templatePath)
 	if err != nil {
 		return err
 	}
 
+	log.WithField("path", thoughtPath).Debug("Hashing file")
 	beforeHash, err := hashFile(thoughtPath)
 	if err != nil {
 		return err
@@ -276,6 +279,7 @@ func timer(durStr string) error {
 }
 
 func main() {
+	log.SetLevel(log.DebugLevel)
 	if os.Getenv("J_WORKSPACE") == "" {
 		panic("J_WORKSPACE not set")
 	}
