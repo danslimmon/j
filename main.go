@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"text/template"
 	"time"
@@ -96,10 +97,6 @@ func hashFile(path string) ([]byte, error) {
 thoughtAdd adds a new thought to the workspace and marks it for review.
 */
 func thoughtAdd() error {
-	if err := gitPull(os.Getenv("J_WORKSPACE")); err != nil {
-		return err
-	}
-
 	thoughtRelPath := filepath.Join("thoughts", "to_review", fmt.Sprintf("%s.md", uuid.New().String()))
 	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), thoughtRelPath)
 	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "thought.md")
@@ -168,6 +165,11 @@ func shuntFile(path string) error {
 thoughtReview reviews all the thoughts that exist in the workspace, removing each after review.
 */
 func thoughtReview() error {
+	if err := gitPull(os.Getenv("J_WORKSPACE")); err != nil {
+		return err
+	}
+
+	toCommit := make([]string, 0)
 	thoughtFilePaths, _ := filepath.Glob(fmt.Sprintf("%s/thoughts/to_review/????????-????-????-????-????????????.md", os.Getenv("J_WORKSPACE")))
 	for _, thoughtFilePath := range thoughtFilePaths {
 		err := editFile(thoughtFilePath)
@@ -175,6 +177,13 @@ func thoughtReview() error {
 			return err
 		}
 		removeFile(thoughtFilePath)
+
+		thoughtRelPath := strings.TrimPrefix(thoughtFilePath, filepath.Join(os.Getenv("J_WORKSPACE"), ""))
+		toCommit = append(toCommit, thoughtRelPath)
+	}
+
+	if err := gitCommit(os.Getenv("J_WORKSPACE"), toCommit, "j tr"); err != nil {
+		return err
 	}
 
 	log.WithField("reviews", len(thoughtFilePaths)).Info("Review complete")

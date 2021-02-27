@@ -51,7 +51,7 @@ func gitCommit(workspace string, files []string, msg string) error {
 		}
 	}
 
-	_, err = w.Commit(msg, &git.CommitOptions{All: true})
+	_, err = w.Commit(msg, &git.CommitOptions{})
 	if err != nil {
 		return err
 	}
