@@ -27,7 +27,7 @@ func FifoDiscipline(actions []Action) int {
 }
 
 type Action interface {
-	Run() error
+	Run() ([]Action, error)
 }
 
 type Queue struct {
@@ -43,29 +43,38 @@ func (q *Queue) Enqueue(a Action) {
 	q.actions = append(q.actions, a)
 }
 
-// Dequeue returns the next Action due for processing.
+// RunNext runs the next Action.
 //
-// Dequeue decides what Action to dequeue based on the QueueDiscipline with which it was
-// initialized.
+// RunNext runs the next Action in the dequeue. To decide what action is next, it uses the
+// QueueDiscipline with which the Queue was initialized.
 //
-// Return values are as follows: a, the next Action to be processed; final, a bool which indicates
-// whether this action is the last one remaining in the queue, and an error. Callers should check
-// the value of final on each call. If Dequeue is called on an empty Queue, an error will be
-// returned.
-func (q *Queue) Dequeue() (a Action, final bool, err error) {
+// If the action's Run method returns offspring, the offspring will be queued, regardless of whether
+// Run also returns an error.
+//
+// Return values are:
+//
+//   - final: a bool which indicates whether this action is the last one remaining in the queue
+//   - error: any error that comes up during RunNext, which may be an error r
+//
+// Callers should check the value of final on each call. If Dequeue is called on an empty Queue, an
+// error will be returned.
+func (q *Queue) Dequeue() (final bool, err error) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.actions) <= 0 {
-		return nil, false, errDequeueOnEmptyQueue
+		return false, errDequeueOnEmptyQueue
 	}
 
 	i := q.discipline(q.actions)
 	if i == -1 {
-		return nil, false, errors.New("Unable to pick next action")
+		return false, errors.New("Unable to pick next action")
 	}
 
-	a = q.actions[i]
+	a := q.actions[i]
 	q.actions = append(q.actions[0:i], q.actions[i+1:]...)
+
+	offspring, err := a.Run()
+	q.actions = append(q.actions, offspring...)
 	if len(q.actions) <= 0 {
 		final = true
 	}
