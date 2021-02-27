@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/gernest/front"
-	"github.com/go-git/go-git/v5"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
@@ -93,32 +92,6 @@ func hashFile(path string) ([]byte, error) {
 	return rslt[:], nil
 }
 
-// gitPull pulls the latest changes into the j workspace.
-//
-// path is the path to the repository.
-//
-// gitPull always pulls HEAD from origin. If HEAD is detached, or origin is not available, it will
-// error.
-func gitPull(path string) error {
-	r, err := git.PlainOpen(path)
-	if err != nil {
-		return err
-	}
-
-	w, err := r.Worktree()
-	if err != nil {
-		return err
-	}
-
-	err = w.Pull(&git.PullOptions{RemoteName: "origin"})
-	if err != nil && err != git.NoErrAlreadyUpToDate {
-		log.Error(err)
-		return err
-	}
-
-	return nil
-}
-
 /*
 thoughtAdd adds a new thought to the workspace and marks it for review.
 */
@@ -127,7 +100,8 @@ func thoughtAdd() error {
 		return err
 	}
 
-	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), "thoughts", "to_review", fmt.Sprintf("%s.md", uuid.New().String()))
+	thoughtRelPath := filepath.Join("thoughts", "to_review", fmt.Sprintf("%s.md", uuid.New().String()))
+	thoughtPath := filepath.Join(os.Getenv("J_WORKSPACE"), thoughtRelPath)
 	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "thought.md")
 	err := newFile("thought", thoughtPath, templatePath)
 	if err != nil {
@@ -154,6 +128,10 @@ func thoughtAdd() error {
 	if bytes.Compare(afterHash, beforeHash) == 0 {
 		log.Info("No change to thought document; aborting")
 		removeFile(thoughtPath)
+	}
+
+	if err := gitCommit(os.Getenv("J_WORKSPACE"), []string{thoughtRelPath}, "j ta"); err != nil {
+		return err
 	}
 
 	return nil
