@@ -13,9 +13,9 @@ import (
 	"text/template"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/gernest/front"
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 )
 
 /*
