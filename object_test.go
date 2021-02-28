@@ -1,8 +1,10 @@
 package main
 
 import (
-	"github.com/stretchr/testify/assert"
+	"io/ioutil"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // Thought should satisfy the Object interface
@@ -201,5 +203,59 @@ some text
 		b, err := obj.Marshal()
 		assert.Nil(err)
 		assert.Equal(string(tc.Out), string(b))
+	}
+}
+
+// Thought should handle mutations via file modification
+func TestThought_Mutate(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+
+	type testCase struct {
+		In       *Thought
+		MutateFn func(string) error
+		Match    func(*Thought)
+	}
+
+	testCases := []testCase{
+		testCase{
+			In: &Thought{
+				Body: "# hello\n\ni am some markdown",
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{"foo", "bar"},
+				},
+			},
+			MutateFn: func(path string) error {
+				return ioutil.WriteFile(
+					path,
+					[]byte(`---
+class: thought
+tags:
+- foo
+- bar
+- baz
+pending_review: true
+---
+# new body
+
+different from the old body
+`),
+					0644,
+				)
+			},
+			Match: func(obj *Thought) {
+				assert.Equal("# new body\n\ndifferent from the old body", obj.Body)
+				assert.Equal("thought", obj.Meta.Class)
+				assert.Equal([]string{"foo", "bar", "baz"}, obj.Meta.Tags)
+			},
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Logf("test case %d", i)
+		err := tc.In.Mutate(tc.MutateFn)
+		assert.Nil(err)
+		tc.Match(tc.In)
 	}
 }

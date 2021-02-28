@@ -3,6 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/gernest/front"
@@ -87,8 +90,48 @@ func (obj *Thought) Bucket() string {
 //
 // Mutate returns an error if there's any problem marshaling or unmarshaling, or if the function
 // passed to Mutate returns an error. If Mutate returns an error, the object remains unchanged.
-func (obj *Thought) Mutate(func(string) error) error {
-	return nil
+func (obj *Thought) Mutate(fn func(string) error) error {
+	f, err := ioutil.TempFile("", "jt_*")
+	if err != nil {
+		return err
+	}
+
+	path, err := filepath.Abs(f.Name())
+	if err != nil {
+		return err
+	}
+	defer os.Remove(path)
+
+	b, err := obj.Marshal()
+	if err != nil {
+		return err
+	}
+
+	n, err := f.Write(b)
+	if err != nil {
+		return err
+	}
+	if n != len(b) {
+		return fmt.Errorf("failed to write entire object to temp file; wrote %d/%d bytes", n, len(b))
+	}
+	f.Close()
+
+	// Do the mutation
+	if err := fn(path); err != nil {
+		return err
+	}
+
+	ff, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("failed to open temp file after mutation: %w", err)
+	}
+
+	bb, err := ioutil.ReadAll(ff)
+	if err != nil {
+		return fmt.Errorf("failed to read temp file after mutation: %w", err)
+	}
+
+	return obj.Unmarshal(bb)
 }
 
 // Marshal produces a Markdown-with-YAML-frontmatter document based on the Thought.
