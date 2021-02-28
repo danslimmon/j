@@ -7,6 +7,7 @@ import (
 
 	"github.com/gernest/front"
 	log "github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 // Object is something that can be stored in the J workspace.
@@ -90,8 +91,20 @@ func (obj *Thought) Mutate(func(string) error) error {
 	return nil
 }
 
+// Marshal produces a Markdown-with-YAML-frontmatter document based on the Thought.
 func (obj *Thought) Marshal() ([]byte, error) {
-	return []byte{}, nil
+	frontMatter := yaml.MapSlice{
+		yaml.MapItem{Key: "class", Value: obj.Meta.Class},
+		yaml.MapItem{Key: "tags", Value: obj.Meta.Tags},
+		yaml.MapItem{Key: "pending_review", Value: obj.PendingReview},
+	}
+
+	b, err := yaml.Marshal(frontMatter)
+	if err != nil {
+		return []byte{}, nil
+	}
+
+	return []byte(fmt.Sprintf("---\n%s---\n%s", b, obj.Body)), nil
 }
 
 // Unmarshal updates the object to match the Markdown it's passed.

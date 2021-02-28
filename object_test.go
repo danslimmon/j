@@ -125,3 +125,81 @@ some text`),
 		assert.Error(err)
 	}
 }
+
+// Thought should marshal to correct YAML/Markdown
+func TestThought_Marshal(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+
+	type testCase struct {
+		In  *Thought
+		Out []byte
+	}
+	testCases := []testCase{
+
+		// Most basic
+		testCase{
+			In: &Thought{
+				Body:          "# blah blah",
+				PendingReview: false,
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{},
+				},
+			},
+			Out: []byte(`---
+class: thought
+tags: []
+pending_review: false
+---
+# blah blah`),
+		},
+
+		// Body empty
+		testCase{
+			In: &Thought{
+				Body: "",
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{},
+				},
+			},
+			Out: []byte(`---
+class: thought
+tags: []
+pending_review: false
+---
+`),
+		},
+
+		// Tags present
+		testCase{
+			In: &Thought{
+				Body: "# blah blah\n\nsome text\n",
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{"foo", "bar"},
+				},
+			},
+			Out: []byte(`---
+class: thought
+tags:
+- foo
+- bar
+pending_review: false
+---
+# blah blah
+
+some text
+`),
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Logf("test case %d", i)
+		obj := tc.In
+		b, err := obj.Marshal()
+		assert.Nil(err)
+		assert.Equal(string(tc.Out), string(b))
+	}
+}
