@@ -141,4 +141,7 @@ NewStorageClient returns a StorageClient whose base directory is baseDir.
 func NewStorageClient(c StorageConfig) {...}
 ```
 
-# #3 git push
+# #9 abstract workspace
+
+- make Workspace with tests
+- make object.Thought with tests
