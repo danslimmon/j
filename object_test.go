@@ -45,6 +45,7 @@ tags:
 				assert.Equal("thought", obj.Meta.Class)
 				assert.Equal(0, len(obj.Meta.Tags))
 				assert.Equal("", obj.Body)
+				assert.False(obj.PendingReview)
 			},
 		},
 
@@ -52,6 +53,7 @@ tags:
 		testCase{
 			In: []byte(`---
 class: thought
+pending_review: true
 tags:
   - foo
   - bar
@@ -65,6 +67,7 @@ some text`),
 				assert.Equal("foo", obj.Meta.Tags[0])
 				assert.Equal("bar", obj.Meta.Tags[1])
 				assert.Equal("# blah blah\n\nsome text", obj.Body)
+				assert.True(obj.PendingReview)
 			},
 		},
 	}
@@ -75,5 +78,50 @@ some text`),
 		err := obj.Unmarshal(tc.In)
 		assert.Equal(nil, err)
 		tc.Match(obj)
+	}
+}
+
+// Thought.Unmarshal should error on malformed input
+func TestThought_Unmarshal_Malformed(t *testing.T) {
+	t.Parallel()
+	assert := assert.New(t)
+
+	type testCase struct {
+		In []byte
+	}
+	testCases := []testCase{
+
+		// Empty
+		testCase{
+			In: []byte(``),
+		},
+
+		// Frontmatter absent
+		testCase{
+			In: []byte(`# i'm a markdown document
+
+blah blah blah`),
+		},
+
+		// Frontmatter not valid YAML
+		testCase{
+			In: []byte(`---
+class-thought!
+pending_review: true
+tags:
+  - foo
+  - bar
+---
+# blah blah
+
+some text`),
+		},
+	}
+
+	for i, tc := range testCases {
+		t.Logf("test case %d", i)
+		obj := NewThought()
+		err := obj.Unmarshal(tc.In)
+		assert.Error(err)
 	}
 }

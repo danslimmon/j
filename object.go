@@ -96,6 +96,10 @@ func (obj *Thought) Marshal() ([]byte, error) {
 
 // Unmarshal updates the object to match the Markdown it's passed.
 func (obj *Thought) Unmarshal(b []byte) error {
+	if len(b) < 3 {
+		return fmt.Errorf("frontmatter missing")
+	}
+
 	m := front.NewMatter()
 	m.Handle("---", front.YAMLHandler)
 	frontMatter, body, err := m.Parse(bytes.NewReader(b))
