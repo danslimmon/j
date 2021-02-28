@@ -30,14 +30,22 @@ type Meta struct {
 }
 
 // Update sets the Meta's attributes according to the given frontmatter map.
+//
+// Update will return an error if any fields are of the wrong type.
 func (m *Meta) Update(frontMatter map[string]interface{}) error {
 	if vi, ok := frontMatter["class"]; ok {
 		if v, ok := vi.(string); ok {
-			m.Class = v
+			if v != m.Class {
+				log.WithFields(log.Fields{
+					"from": m.Class,
+					"to":   v,
+				}).Warn("Cannot change class of object")
+			}
 		} else {
 			return fmt.Errorf("field 'class' has wrong type '%s'", reflect.TypeOf(vi).Name())
 		}
 	}
+
 	if vi, ok := frontMatter["tags"]; ok {
 		if v, ok := vi.([]interface{}); ok {
 			tags := make([]string, 0)
@@ -62,6 +70,8 @@ func (m *Meta) Update(frontMatter map[string]interface{}) error {
 type Thought struct {
 	id string
 
+	// Body is the Markdown part of the file. It will not end in a newline, even when unmarshaling
+	// from a file that does.
 	Body          string
 	PendingReview bool
 	Meta          *Meta
@@ -135,6 +145,8 @@ func (obj *Thought) Mutate(fn func(string) error) error {
 }
 
 // Marshal produces a Markdown-with-YAML-frontmatter document based on the Thought.
+//
+// The marshaled data will end with a newline.
 func (obj *Thought) Marshal() ([]byte, error) {
 	frontMatter := yaml.MapSlice{
 		yaml.MapItem{Key: "class", Value: obj.Meta.Class},
@@ -147,7 +159,14 @@ func (obj *Thought) Marshal() ([]byte, error) {
 		return []byte{}, nil
 	}
 
-	return []byte(fmt.Sprintf("---\n%s---\n%s", b, obj.Body)), nil
+	// Append a newline, but only if there is a body. If the body is empty, then the data is already
+	// newline-terminated (from the YAML frontmatter part), so we don't need an extra one.
+	var suffix string
+	if obj.Body != "" {
+		suffix = "\n"
+	}
+
+	return []byte(fmt.Sprintf("---\n%s---\n%s%s", b, obj.Body, suffix)), nil
 }
 
 // Unmarshal updates the object to match the Markdown it's passed.

@@ -143,5 +143,7 @@ func NewStorageClient(c StorageConfig) {...}
 
 # #9 abstract workspace
 
-- make Workspace with tests
 - make object.Thought with tests
+  - more tests for Thought.Mutate
+
+- make Workspace with tests

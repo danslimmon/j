@@ -154,7 +154,8 @@ class: thought
 tags: []
 pending_review: false
 ---
-# blah blah`),
+# blah blah
+`),
 		},
 
 		// Body empty
@@ -177,7 +178,7 @@ pending_review: false
 		// Tags present
 		testCase{
 			In: &Thought{
-				Body: "# blah blah\n\nsome text\n",
+				Body: "# blah blah\n\nsome text",
 				Meta: &Meta{
 					Class: "thought",
 					Tags:  []string{"foo", "bar"},
@@ -218,6 +219,8 @@ func TestThought_Mutate(t *testing.T) {
 	}
 
 	testCases := []testCase{
+
+		// User modifies tags and body
 		testCase{
 			In: &Thought{
 				Body: "# hello\n\ni am some markdown",
@@ -248,6 +251,96 @@ different from the old body
 				assert.Equal("# new body\n\ndifferent from the old body", obj.Body)
 				assert.Equal("thought", obj.Meta.Class)
 				assert.Equal([]string{"foo", "bar", "baz"}, obj.Meta.Tags)
+			},
+		},
+
+		// User removes all tags and deletes pending_review field
+		testCase{
+			In: &Thought{
+				Body: "# boopty bewpty spoot\n",
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{"foo", "bar"},
+				},
+			},
+			MutateFn: func(path string) error {
+				return ioutil.WriteFile(
+					path,
+					[]byte(`---
+class: thought
+tags:
+---
+# boopty bewpty spoot
+`),
+					0644,
+				)
+			},
+			Match: func(obj *Thought) {
+				assert.Equal("# boopty bewpty spoot", obj.Body)
+				assert.Equal("thought", obj.Meta.Class)
+				assert.Equal([]string{}, obj.Meta.Tags)
+			},
+		},
+
+		// User deletes body and doesn't terminate with a newline
+		testCase{
+			In: &Thought{
+				Body: "# tomorrow\n\nand tomorrow\n",
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{"foo", "bar"},
+				},
+			},
+			MutateFn: func(path string) error {
+				return ioutil.WriteFile(
+					path,
+					[]byte(`---
+class: thought
+tags:
+- foo
+- bar
+---`),
+					0644,
+				)
+			},
+			Match: func(obj *Thought) {
+				assert.Equal("", obj.Body)
+				assert.Equal("thought", obj.Meta.Class)
+				assert.Equal([]string{"foo", "bar"}, obj.Meta.Tags)
+			},
+		},
+
+		// User attempts to change class; this should be ignored.
+		testCase{
+			In: &Thought{
+				Body: "# did you ever wear pants\n\nthat were bigger than you meant to?",
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{"foo", "bar"},
+				},
+			},
+			MutateFn: func(path string) error {
+				return ioutil.WriteFile(
+					path,
+					[]byte(`---
+class: journal_entry
+tags:
+- foo
+- bar
+---
+# did you ever wear pants
+
+that were bigger than you meant to?
+
+
+`),
+					0644,
+				)
+			},
+			Match: func(obj *Thought) {
+				assert.Equal("# did you ever wear pants\n\nthat were bigger than you meant to?", obj.Body)
+				assert.Equal("thought", obj.Meta.Class)
+				assert.Equal([]string{"foo", "bar"}, obj.Meta.Tags)
 			},
 		},
 	}
