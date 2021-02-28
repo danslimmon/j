@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"fmt"
+	"reflect"
 
 	"github.com/gernest/front"
 	log "github.com/sirupsen/logrus"
@@ -29,14 +31,24 @@ func (m *Meta) Update(frontMatter map[string]interface{}) error {
 		if v, ok := vi.(string); ok {
 			m.Class = v
 		} else {
-			log.WithField("class", vi).Warn("class field has wrong type; ignoring")
+			return fmt.Errorf("field 'class' has wrong type '%s'", reflect.TypeOf(vi).Name())
 		}
 	}
 	if vi, ok := frontMatter["tags"]; ok {
-		if v, ok := vi.([]string); ok {
-			m.Tags = v
+		if v, ok := vi.([]interface{}); ok {
+			tags := make([]string, 0)
+			for _, vvi := range v {
+				if vv, ok := vvi.(string); ok {
+					tags = append(tags, vv)
+				} else {
+					return fmt.Errorf("element of field 'tags' has wrong type '%v'", reflect.TypeOf(vvi))
+				}
+			}
+			m.Tags = tags
+		} else if vi == nil {
+			m.Tags = []string{}
 		} else {
-			log.WithField("tags", vi).Warn("tags field has wrong type; ignoring")
+			return fmt.Errorf("field 'tags' has wrong type '%v'", reflect.TypeOf(vi))
 		}
 	}
 	return nil
@@ -87,13 +99,17 @@ func (obj *Thought) Unmarshal(b []byte) error {
 	m := front.NewMatter()
 	m.Handle("---", front.YAMLHandler)
 	frontMatter, body, err := m.Parse(bytes.NewReader(b))
-	if err != nil {
+	if err == front.ErrIsEmpty {
+		log.WithField("object_id", obj.id).Warn("Markdown section of file is empty")
+	} else if err != nil {
 		return err
 	}
 
 	if vi, ok := frontMatter["pending_review"]; ok {
 		if v, ok := vi.(bool); ok {
 			obj.PendingReview = v
+		} else {
+			return fmt.Errorf("field 'pending_review' has wrong type '%s'", reflect.TypeOf(vi).Name())
 		}
 	}
 	obj.Body = body

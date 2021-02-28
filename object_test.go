@@ -20,6 +20,8 @@ func TestThought_Unmarshal(t *testing.T) {
 		Match func(*Thought)
 	}
 	testCases := []testCase{
+
+		// Most basic
 		testCase{
 			In: []byte(`---
 class: thought
@@ -32,11 +34,46 @@ tags:
 				assert.Equal("# blah blah", obj.Body)
 			},
 		},
+
+		// Body empty
+		testCase{
+			In: []byte(`---
+class: thought
+tags:
+---`),
+			Match: func(obj *Thought) {
+				assert.Equal("thought", obj.Meta.Class)
+				assert.Equal(0, len(obj.Meta.Tags))
+				assert.Equal("", obj.Body)
+			},
+		},
+
+		// Tags present
+		testCase{
+			In: []byte(`---
+class: thought
+tags:
+  - foo
+  - bar
+---
+# blah blah
+
+some text`),
+			Match: func(obj *Thought) {
+				assert.Equal("thought", obj.Meta.Class)
+				assert.Equal(2, len(obj.Meta.Tags))
+				assert.Equal("foo", obj.Meta.Tags[0])
+				assert.Equal("bar", obj.Meta.Tags[1])
+				assert.Equal("# blah blah\n\nsome text", obj.Body)
+			},
+		},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
+		t.Logf("test case %d", i)
 		obj := NewThought()
-		obj.Unmarshal(tc.In)
+		err := obj.Unmarshal(tc.In)
+		assert.Equal(nil, err)
 		tc.Match(obj)
 	}
 }
