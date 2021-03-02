@@ -143,5 +143,4 @@ func NewStorageClient(c StorageConfig) {...}
 
 # #9 abstract workspace
 
-- see about commented out tests in TestThought_Mutate_Error
 - make Workspace with tests

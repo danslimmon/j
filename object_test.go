@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -387,97 +388,19 @@ i am some markdown
 			},
 		},
 
-		/*
-					// User removes all tags and deletes pending_review field
-					testCase{
-						In: &Thought{
-							Body: "# boopty bewpty spoot\n",
-							Meta: &Meta{
-								Class: "thought",
-								Tags:  []string{"foo", "bar"},
-							},
-						},
-						MutateFn: func(path string) error {
-							return ioutil.WriteFile(
-								path,
-								[]byte(`---
-			class: thought
-			tags:
-			---
-			# boopty bewpty spoot
-			`),
-								0644,
-							)
-						},
-						Match: func(obj *Thought) {
-							assert.Equal("# boopty bewpty spoot", obj.Body)
-							assert.Equal("thought", obj.Meta.Class)
-							assert.Equal([]string{}, obj.Meta.Tags)
-						},
-					},
-
-					// User deletes body and doesn't terminate with a newline
-					testCase{
-						In: &Thought{
-							Body: "# tomorrow\n\nand tomorrow\n",
-							Meta: &Meta{
-								Class: "thought",
-								Tags:  []string{"foo", "bar"},
-							},
-						},
-						MutateFn: func(path string) error {
-							return ioutil.WriteFile(
-								path,
-								[]byte(`---
-			class: thought
-			tags:
-			- foo
-			- bar
-			---`),
-								0644,
-							)
-						},
-						Match: func(obj *Thought) {
-							assert.Equal("", obj.Body)
-							assert.Equal("thought", obj.Meta.Class)
-							assert.Equal([]string{"foo", "bar"}, obj.Meta.Tags)
-						},
-					},
-
-					// User attempts to change class; this should be ignored.
-					testCase{
-						In: &Thought{
-							Body: "# did you ever wear pants\n\nthat were bigger than you meant to?",
-							Meta: &Meta{
-								Class: "thought",
-								Tags:  []string{"foo", "bar"},
-							},
-						},
-						MutateFn: func(path string) error {
-							return ioutil.WriteFile(
-								path,
-								[]byte(`---
-			class: journal_entry
-			tags:
-			- foo
-			- bar
-			---
-			# did you ever wear pants
-
-			that were bigger than you meant to?
-
-
-			`),
-								0644,
-							)
-						},
-						Match: func(obj *Thought) {
-							assert.Equal("# did you ever wear pants\n\nthat were bigger than you meant to?", obj.Body)
-							assert.Equal("thought", obj.Meta.Class)
-							assert.Equal([]string{"foo", "bar"}, obj.Meta.Tags)
-						},
-					},
-		*/
+		// Mutate function returns error
+		testCase{
+			In: &Thought{
+				Body: []byte("# hello\n\ni am some markdown"),
+				Meta: &Meta{
+					Class: "thought",
+					Tags:  []string{"foo", "bar"},
+				},
+			},
+			MutateFn: func(path string) error {
+				return fmt.Errorf("blah blah")
+			},
+		},
 	}
 
 	for i, tc := range testCases {
