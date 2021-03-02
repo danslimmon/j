@@ -146,4 +146,5 @@ func NewStorageClient(c StorageConfig) {...}
 - make object.Thought with tests
   - more tests for Thought.Mutate
 
+- see about commented out tests in TestThought_Mutate_Error
 - make Workspace with tests

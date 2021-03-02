@@ -6,15 +6,11 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 
-	"github.com/gernest/front"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
-// Object is something that can be stored in the J workspace.
-//
 // It may be a thought, or a journal_entry, or whatever other class of object we may have.
 type Object interface {
 	ID() string
@@ -24,45 +20,62 @@ type Object interface {
 	Unmarshal([]byte) error
 }
 
+// FrontMatter is the struct into which we unmarshal a document's YAML section.
+//
+// It is not used on marshal.
+type FrontMatter struct {
+	// Attributes shared by all objects
+	Class string
+	Tags  []string
+
+	// Thought-specific attributes
+	PendingReview bool
+}
+
+// UnmarshalYAML unmarshal's YAML into the FrontMatter.
+//
+// UnmarshalYAML is part of the yaml.Unmarshaler interface. We implement this interface in order to
+// ensure that an empty list in the YAML unmarshals to an empty slice rather than a nil slice.
+func (fm *FrontMatter) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	buf := new(struct {
+		Class string   `yaml:"class"`
+		Tags  []string `yaml:"tags"`
+
+		// Thought-specific attributes
+		PendingReview bool `yaml:"pending_review"`
+	})
+	err := unmarshal(buf)
+	if err != nil {
+		return err
+	}
+
+	fm.Class = buf.Class
+	if buf.Tags == nil {
+		fm.Tags = []string{}
+	} else {
+		fm.Tags = buf.Tags[:]
+	}
+
+	fm.PendingReview = buf.PendingReview
+
+	return nil
+}
+
 type Meta struct {
 	Class string
 	Tags  []string
 }
 
-// Update sets the Meta's attributes according to the given frontmatter map.
-//
-// Update will return an error if any fields are of the wrong type.
-func (m *Meta) Update(frontMatter map[string]interface{}) error {
-	if vi, ok := frontMatter["class"]; ok {
-		if v, ok := vi.(string); ok {
-			if v != m.Class {
-				log.WithFields(log.Fields{
-					"from": m.Class,
-					"to":   v,
-				}).Warn("Cannot change class of object")
-			}
-		} else {
-			return fmt.Errorf("field 'class' has wrong type '%s'", reflect.TypeOf(vi).Name())
-		}
+// Update sets the Meta's attributes according to the given FrontMatter.
+func (m *Meta) Update(fm *FrontMatter) error {
+	if fm.Class != m.Class {
+		log.WithFields(log.Fields{
+			"from": m.Class,
+			"to":   fm.Class,
+		}).Warn("Cannot change class of object")
 	}
 
-	if vi, ok := frontMatter["tags"]; ok {
-		if v, ok := vi.([]interface{}); ok {
-			tags := make([]string, 0)
-			for _, vvi := range v {
-				if vv, ok := vvi.(string); ok {
-					tags = append(tags, vv)
-				} else {
-					return fmt.Errorf("element of field 'tags' has wrong type '%v'", reflect.TypeOf(vvi))
-				}
-			}
-			m.Tags = tags
-		} else if vi == nil {
-			m.Tags = []string{}
-		} else {
-			return fmt.Errorf("field 'tags' has wrong type '%v'", reflect.TypeOf(vi))
-		}
-	}
+	m.Tags = fm.Tags[:]
 	return nil
 }
 
@@ -72,7 +85,7 @@ type Thought struct {
 
 	// Body is the Markdown part of the file. It will not end in a newline, even when unmarshaling
 	// from a file that does.
-	Body          string
+	Body          []byte
 	PendingReview bool
 	Meta          *Meta
 }
@@ -154,45 +167,56 @@ func (obj *Thought) Marshal() ([]byte, error) {
 		yaml.MapItem{Key: "pending_review", Value: obj.PendingReview},
 	}
 
-	b, err := yaml.Marshal(frontMatter)
+	y, err := yaml.Marshal(frontMatter)
 	if err != nil {
 		return []byte{}, nil
 	}
 
 	// Append a newline, but only if there is a body. If the body is empty, then the data is already
 	// newline-terminated (from the YAML frontmatter part), so we don't need an extra one.
-	var suffix string
-	if obj.Body != "" {
-		suffix = "\n"
+	body := obj.Body[:]
+	if len(body) != 0 {
+		body = append(body, []byte("\n")...)
 	}
 
-	return []byte(fmt.Sprintf("---\n%s---\n%s%s", b, obj.Body, suffix)), nil
+	return bytes.Join(
+		[][]byte{
+			[]byte{},
+			y,
+			body,
+		},
+		[]byte("---\n"),
+	), nil
 }
 
 // Unmarshal updates the object to match the Markdown it's passed.
 func (obj *Thought) Unmarshal(b []byte) error {
-	if len(b) < 3 {
-		return fmt.Errorf("frontmatter missing")
+	var parts [][]byte = bytes.SplitN(b, []byte("---\n"), 3)
+	if len(parts) != 3 {
+		return fmt.Errorf(`File must have 3 sections separated by "---\n"`)
 	}
 
-	m := front.NewMatter()
-	m.Handle("---", front.YAMLHandler)
-	frontMatter, body, err := m.Parse(bytes.NewReader(b))
-	if err == front.ErrIsEmpty {
-		log.WithField("object_id", obj.id).Warn("Markdown section of file is empty")
-	} else if err != nil {
+	// parts[0]
+	if len(parts[0]) != 0 {
+		return fmt.Errorf(`File must start with "---\n"`)
+	}
+
+	// parts[1] (the YAML part)
+	fm := new(FrontMatter)
+	err := yaml.Unmarshal(parts[1], fm)
+	if err != nil {
 		return err
 	}
 
-	if vi, ok := frontMatter["pending_review"]; ok {
-		if v, ok := vi.(bool); ok {
-			obj.PendingReview = v
-		} else {
-			return fmt.Errorf("field 'pending_review' has wrong type '%s'", reflect.TypeOf(vi).Name())
-		}
-	}
+	// parts[2] (the body Markdown)
+	body := bytes.TrimRight(
+		parts[2][:],
+		"\n",
+	)
+
+	obj.PendingReview = fm.PendingReview
 	obj.Body = body
-	if err := obj.Meta.Update(frontMatter); err != nil {
+	if err := obj.Meta.Update(fm); err != nil {
 		return err
 	}
 
