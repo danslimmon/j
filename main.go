@@ -62,6 +62,13 @@ func newFile(class string, path string, templatePath string) error {
 		return err
 	}
 
+	// Make dir for this file if it doesn't exist
+	dirPath := filepath.Dir(path)
+	err = os.MkdirAll(dirPath, 0755)
+	if err != nil {
+		return err
+	}
+
 	newFile, err := os.Create(path)
 	if err != nil {
 		return err
