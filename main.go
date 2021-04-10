@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -237,6 +238,33 @@ func journalAdd() error {
 }
 
 /*
+randomKanji returns a kanji.
+*/
+func randomKanji() rune {
+	dist := uint32(0x9faf - 0x4e00)
+	r := rand.Uint32()
+	return rune(0x4e00 + (r % dist))
+}
+
+/*
+eyeCatcher prints an eye catching thingy so that the user can see in their peripheral vision.
+
+it runs until the program exits.
+*/
+func eyeCatcher() {
+	for {
+		cmd := exec.Command("clear")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+		for i := 0; i < 50; i++ {
+			c := randomKanji()
+			fmt.Printf("%s", string(c))
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+/*
 timer:
 
 j$ j timer 30m
@@ -270,6 +298,7 @@ func timer(durStr string) error {
 		select {
 		case <-after:
 			log.Info("timer elapsed")
+			eyeCatcher()
 			return nil
 		case <-sigTSTPCh:
 			// pause the timer, and when we unpause, reset the timer to the new
