@@ -1,3 +1,6 @@
+**WARNING: this README is full of lies. this software does very little of what is described here.
+don't trust it.**
+
 # j: a tool for thinking
 
 `j` is a tool for streamlining thought. it aims, through the magic of the UNIX console, to minimize
