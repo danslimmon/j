@@ -47,8 +47,8 @@ type TemplateData struct {
 /*
 newFile creates a new file at the given path based on the given template.
 
-class is the class of the document; e.g. "thought" or "journal_entry". path is the path where the
-file should be created. templatePath is the path to a template to render to generate the  file's
+class is the class of the document; e.g. "thought" or "journal-entry". path is the path where the
+file should be created. templatePath is the path to a template to render to generate the file's
 initial content.
 */
 func newFile(class string, path string, templatePath string) error {
@@ -206,8 +206,8 @@ journalAdd adds a new journal entry to the workspace
 */
 func journalAdd() error {
 	entryPath := filepath.Join(os.Getenv("J_WORKSPACE"), "journal", fmt.Sprintf("%s.md", time.Now().Format("2006_01_02_15_04_05")))
-	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "journal_entry.md")
-	err := newFile("journal_entry", entryPath, templatePath)
+	templatePath := filepath.Join(os.Getenv("J_WORKSPACE"), "template", "journal-entry.md")
+	err := newFile("journal-entry", entryPath, templatePath)
 	if err != nil {
 		return err
 	}
