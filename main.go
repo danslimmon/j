@@ -280,7 +280,7 @@ func timer(durStr string) error {
 	// calculate `startTime` as close as possible to the time the user hit enter
 	startTime := time.Now()
 	dur, err := time.ParseDuration(durStr)
-	after := time.After(dur)
+	timer := time.NewTimer(dur)
 
 	log.Info("cancel: ^C")
 	log.Info("pause:  ^Z")
@@ -296,20 +296,23 @@ func timer(durStr string) error {
 	log.WithField("duration", durStr).Info("starting timer")
 	for {
 		select {
-		case <-after:
+		case <-timer.C:
 			log.Info("timer elapsed")
 			eyeCatcher()
 			return nil
 		case <-sigTSTPCh:
 			// pause the timer, and when we unpause, reset the timer to the new
 			// amount of time between now and endTime.
+			if !timer.Stop() {
+				<-timer.C
+			}
 			elapsedDur := time.Now().Sub(startTime)
 			remainingDur := dur - elapsedDur
 			log.Info("pausing")
 			log.Info("resume: ^Z")
 			<-sigTSTPCh
 			log.Info("continuing")
-			after = time.After(remainingDur)
+			timer.Reset(remainingDur)
 		}
 	}
 }
