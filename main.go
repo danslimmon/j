@@ -247,20 +247,44 @@ func randomKanji() rune {
 }
 
 /*
+randomKanji returns a kanji of 1–3 strokes.
+*/
+func randomSimpleKanji() rune {
+	choices := []rune("一乙〇丁七九了二人入八刀力十又乃万丈三上下丸久亡凡刃千口土士夕大女子寸小山川工己干弓才之巾乞于也々勺大")
+	return choices[rand.Intn(len(choices))]
+}
+
+/*
 eyeCatcher prints an eye catching thingy so that the user can see in their peripheral vision.
 
 it runs until the program exits.
 */
 func eyeCatcher() {
+	type simplePart struct {
+		Width int
+		I0    int
+		Dir   int
+	}
+	sp := simplePart{Width: 10, I0: 0, Dir: 1}
+
 	for {
 		cmd := exec.Command("clear")
 		cmd.Stdout = os.Stdout
 		cmd.Run()
 		for i := 0; i < 50; i++ {
-			c := randomKanji()
+			var c rune
+			if i >= sp.I0 && i < sp.I0+sp.Width {
+				c = randomSimpleKanji()
+			} else {
+				c = randomKanji()
+			}
 			fmt.Printf("%s", string(c))
 		}
-		time.Sleep(200 * time.Millisecond)
+		if sp.I0+sp.Dir < 0 || sp.I0+sp.Width+sp.Dir > 50 {
+			sp.Dir = 0 - sp.Dir
+		}
+		sp.I0 = sp.I0 + sp.Dir
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
